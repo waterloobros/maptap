@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapTap Leaderboard</title>
+<style>
+  :root{
+    --ink:#1c1b19;
+    --paper:#f6f2ea;
+    --paper-dim:#efe9dd;
+    --line:#d9d0bd;
+    --gold:#b8862f;
+    --silver:#8b8b8b;
+    --bronze:#a9642f;
+    --accent:#2f6f5e;
+    --accent-dim:#e4ede9;
+    --red:#a13d2e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Iowan Old Style','Georgia',serif;
+    min-height:100vh;
+    padding:28px 16px 60px;
+  }
+  .wrap{max-width:640px;margin:0 auto;}
+
+  header{
+    text-align:center;
+    margin-bottom:28px;
+    padding-bottom:20px;
+    border-bottom:3px double var(--ink);
+  }
+  .eyebrow{
+    font-family:'Courier New',monospace;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    font-size:11px;
+    color:var(--accent);
+    margin-bottom:6px;
+  }
+  h1{
+    font-size:38px;
+    margin:0 0 4px;
+    letter-spacing:.01em;
+    font-weight:700;
+  }
+  .subtitle{
+    font-family:'Courier New',monospace;
+    font-size:12px;
+    color:#6b6455;
+  }
+
+  .toggle-wrap{
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    margin-top:16px;
+  }
+  .toggle-btn{
+    font-family:'Courier New',monospace;
+    font-size:11px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    padding:8px 14px;
+    border:1px solid var(--ink);
+    background:var(--paper);
+    color:var(--ink);
+    cursor:pointer;
+    border-radius:3px;
+    transition:background .15s ease, color .15s ease;
+  }
+  .toggle-btn:hover{background:var(--paper-dim);}
+  .toggle-btn.active{
+    background:var(--ink);
+    color:var(--paper);
+  }
+
+  .weighted-note{
+    font-family:'Courier New',monospace;
+    font-size:9.5px;
+    color:#8a8272;
+  }
+
+  .board{
+    list-style:none;
+    margin:0;
+    padding:0;
+  }
+
+  .row{
+    border-bottom:1px solid var(--line);
+  }
+  .row:first-child{border-top:1px solid var(--line);}
+
+  .row-head{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    width:100%;
+    background:none;
+    border:none;
+    padding:14px 6px;
+    cursor:pointer;
+    font-family:inherit;
+    color:inherit;
+    text-align:left;
+    transition:background .15s ease;
+  }
+  .row-head:hover{background:var(--paper-dim);}
+  .row-head:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
+
+  .rank{
+    font-family:'Courier New',monospace;
+    font-size:14px;
+    width:30px;
+    flex-shrink:0;
+    color:#8a8272;
+  }
+  .rank.medal{font-size:19px; font-family:inherit;}
+
+  .name{
+    flex:1;
+    font-size:19px;
+    font-weight:600;
+  }
+
+  .meta{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:2px;
+    flex-shrink:0;
+  }
+  .avg{
+    font-size:19px;
+    font-weight:700;
+    color:var(--accent);
+    font-variant-numeric:tabular-nums;
+  }
+  .games{
+    font-family:'Courier New',monospace;
+    font-size:10.5px;
+    color:#8a8272;
+    letter-spacing:.03em;
+  }
+
+  .chev{
+    width:10px;
+    flex-shrink:0;
+    transition:transform .2s ease;
+    color:#8a8272;
+  }
+  .row.open .chev{transform:rotate(90deg);}
+
+  .history{
+    max-height:0;
+    overflow:hidden;
+    transition:max-height .28s ease;
+    background:var(--paper-dim);
+  }
+  .row.open .history{ /* max-height set via JS */ }
+
+  .history-inner{
+    padding:4px 6px 16px 50px;
+  }
+  .hist-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    border-left:2px solid var(--line);
+  }
+  .hist-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    padding:6px 0 6px 16px;
+    font-size:14px;
+  }
+  .hist-date{
+    font-family:'Courier New',monospace;
+    font-size:12px;
+    color:#6b6455;
+  }
+  .hist-score{
+    font-variant-numeric:tabular-nums;
+    font-weight:600;
+  }
+  .hist-score.high{color:var(--accent);}
+  .hist-score.low{color:var(--red);}
+
+  footer{
+    text-align:center;
+    margin-top:32px;
+    font-family:'Courier New',monospace;
+    font-size:10.5px;
+    color:#8a8272;
+    letter-spacing:.03em;
+  }
+
+  @media (max-width:420px){
+    h1{font-size:30px;}
+    .name{font-size:16px;}
+    .avg{font-size:16px;}
+    .history-inner{padding-left:34px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">www.maptap.gg &middot; group standings</div>
+    <h1>MapTap Leaderboard</h1>
+    <div class="subtitle" id="subtitle">ranked by average final score &middot; tap a name for full history</div>
+    <div class="toggle-wrap">
+      <button class="toggle-btn active" id="btn-raw" type="button">Raw Average</button>
+      <button class="toggle-btn" id="btn-weighted" type="button">Weighted (k=8)</button>
+      <button class="toggle-btn" id="btn-elo" type="button">Elo</button>
+    </div>
+  </header>
+
+  <ul class="board" id="board"></ul>
+
+
+</div>
+
+<script>
+// name -> [{date: 'YYYY-MM-DD', score: N}, ...] newest first as authored below (will be sorted anyway)
+const raw = [
+["Thouheed","2026-08-11",924],["Saad","2026-08-11",947],["Hussain","2026-08-11",865],
+["Thamjeeth","2026-08-11",896],["Ahmed R","2026-08-11",853],["Sohaib","2026-08-11",862],["Saif","2026-08-11",846],
+["Saad","2026-08-10",869],["Sohaib","2026-08-10",931],["Abdel Rahman","2026-08-10",754],["Saif","2026-08-10",869],["Hussain","2026-08-10",949],
+["Thamjeeth","2026-08-10",881],["Ahmed R","2026-08-10",851],["Faisal","2026-08-10",890],
+["Abdel Rahman","2026-08-09",948],["Ahmed R","2026-08-09",935],["Ahmed M","2026-08-09",729],
+["Saad","2026-08-09",910],["Thouheed","2026-08-09",947],["Thamjeeth","2026-08-09",964],
+["Sohaib","2026-08-09",929],["Hussain","2026-08-09",947],["Saif","2026-08-09",913],
+["Saad","2026-08-08",895],["Thamjeeth","2026-08-08",768],["Thouheed","2026-08-08",937],
+["Hussain","2026-08-08",941],["Saif","2026-08-08",836],
+["Ahmed R","2026-08-08",818],["Ahmed M","2026-08-08",899],
+["Abdel Rahman","2026-08-07",842],
+["Saad","2026-08-07",855],["Thouheed","2026-08-07",915],["Hussain","2026-08-07",867],
+["Sohaib","2026-08-07",873],["Zohair","2026-08-07",893],["Thamjeeth","2026-08-07",912],
+["Danish","2026-08-06",918],["Saad","2026-08-06",949],["Sohaib","2026-08-06",954],
+["Thouheed","2026-08-06",950],["Thamjeeth","2026-08-06",967],["Hussain","2026-08-06",950],
+["Saif","2026-08-06",911],["Haris","2026-08-05",756],["Thouheed","2026-08-05",740],
+["Zohair","2026-08-05",695],["Ahmed R","2026-08-05",798],["Abdel Rahman","2026-08-05",765],
+["Saif","2026-08-05",781],["Hussain","2026-08-05",739],["Saad","2026-08-05",830],
+["Sohaib","2026-08-05",889],["Thamjeeth","2026-08-05",672],["Thamjeeth","2026-08-04",799],
+["Saad","2026-08-04",912],["Sohaib","2026-08-04",942],["Zohair","2026-08-04",866],
+["Saif","2026-08-04",889],["Thouheed","2026-08-04",922],["Hussain","2026-08-04",912],
+["Saad","2026-08-03",855],["Thouheed","2026-08-03",939],["Hussain","2026-08-03",926],
+["Ghufran","2026-08-03",906],["Zohair","2026-08-03",891],["Thamjeeth","2026-08-03",912],
+["Saif","2026-08-03",862],["Saad","2026-08-02",894],["Ahmed R","2026-08-02",829],
+["Thamjeeth","2026-08-02",948],["Zohair","2026-08-02",809],["Hussain","2026-08-02",847],
+["Thouheed","2026-08-02",919],["Saif","2026-08-02",896],
+["Zohair","2026-08-01",872],["Sohaib","2026-08-01",689],
+["Hussain","2026-08-01",845],["Saif","2026-08-01",918],["Thamjeeth","2026-08-01",841],
+["Saad","2026-08-01",892],["Saif","2026-07-31",763],["Ahmed R","2026-07-31",669],
+["Thouheed","2026-07-31",868],["Abdel Rahman","2026-07-31",829],["Faisal","2026-07-31",635],
+["Thamjeeth","2026-07-31",817],["Saad","2026-07-31",867],["Hussain","2026-07-31",860],
+["Ahmed R","2026-07-30",904],["Thamjeeth","2026-07-30",931],["Hussain","2026-07-30",952],
+["Saad","2026-07-30",920],["Zohair","2026-07-30",868],["Saif","2026-07-30",901],
+["Thamjeeth","2026-07-29",858],["Faisal","2026-07-29",881],["Saad","2026-07-29",887],
+["Saif","2026-07-29",883],["Zohair","2026-07-28",785],["Sohaib","2026-07-28",862],
+["Thouheed","2026-07-28",905],["Abdel Rahman","2026-07-28",831],
+["Thamjeeth","2026-07-28",880],["Saad","2026-07-28",826],["Saif","2026-07-28",772],
+["Saif","2026-07-27",885],["Ahmed R","2026-07-27",932],["Hussain","2026-07-27",940],
+["Shahzad","2026-07-27",844],["Saad","2026-07-27",884],["Faisal","2026-07-27",899],
+["Zohair","2026-07-27",909],["Abdel Rahman","2026-07-27",687],["Thamjeeth","2026-07-27",862],
+["Hussain","2026-07-26",874],["Danish","2026-07-26",850],["Zohair","2026-07-26",869],
+["Saif","2026-07-26",807],["Thamjeeth","2026-07-26",850],["Saad","2026-07-26",843],
+["Abdel Rahman","2026-07-25",857],["Saif","2026-07-25",875],["Saad","2026-07-25",783],
+["Hussain","2026-07-25",864],["Irfan","2026-07-24",879],["Thamjeeth","2026-07-24",894],
+["Ahmed R","2026-07-24",913],["Zohair","2026-07-24",845],["Hussain","2026-07-24",827],
+["Saad","2026-07-24",733],["Hussain","2026-07-23",805],
+["Saif","2026-07-23",853],["Zohair","2026-07-23",769],["Thamjeeth","2026-07-23",761],
+["Shahzad","2026-07-23",713],["Abdel Rahman","2026-07-23",689],["Saad","2026-07-23",740],
+["Saad","2026-07-22",865],["Abdel Rahman","2026-07-22",854],["Saif","2026-07-21",686],
+["Sohaib","2026-07-22",914],["Abdel Rahman","2026-07-21",616],["Hussain","2026-07-21",634],
+["Thamjeeth","2026-07-22",888],["Shahzad","2026-07-21",669],["Saad","2026-07-21",701]
+];
+
+// group
+const groups = {};
+raw.forEach(([name,date,score])=>{
+  if(!groups[name]) groups[name] = [];
+  groups[name].push({date,score});
+});
+
+// global average across every game, every player (used for weighted/shrinkage calc)
+const allScores = raw.map(r=>r[2]);
+const globalAvg = allScores.reduce((a,b)=>a+b,0)/allScores.length;
+const K = 8; // shrinkage constant: "games of proof" needed before we trust your own average
+
+// ---- Elo simulation ----
+// Each day = a virtual round-robin: every player who posted a score that day is treated
+// as having "played" every other player who posted that day. Higher final score wins.
+// Dynamic K-factor: K=40 for a player's first 5 games (volatile, still finding their rank),
+// K=20 once established (5+ games played). Everyone starts at 1000.
+function computeElo(){
+  const byDate = {};
+  raw.forEach(([name,date,score])=>{
+    if(!byDate[date]) byDate[date] = [];
+    byDate[date].push({name,score});
+  });
+  const dates = Object.keys(byDate).sort();
+
+  const elo = {};
+  const gamesPlayed = {};
+  raw.forEach(([name])=>{ if(!(name in elo)){ elo[name]=1000; gamesPlayed[name]=0; } });
+
+  dates.forEach(date=>{
+    const players = byDate[date];
+    if(players.length < 2){
+      players.forEach(p=>{ gamesPlayed[p.name]++; });
+      return;
+    }
+    const startElo = {};
+    players.forEach(p=>{ startElo[p.name] = elo[p.name]; });
+    const deltas = {};
+    players.forEach(p=>{ deltas[p.name] = 0; });
+
+    for(let i=0;i<players.length;i++){
+      for(let j=i+1;j<players.length;j++){
+        const A = players[i], B = players[j];
+        const ra = startElo[A.name], rb = startElo[B.name];
+        const ea = 1/(1+Math.pow(10,(rb-ra)/400));
+        const eb = 1-ea;
+        let sa, sb;
+        if(A.score > B.score){ sa=1; sb=0; }
+        else if(A.score < B.score){ sa=0; sb=1; }
+        else { sa=0.5; sb=0.5; }
+        const ka = gamesPlayed[A.name] < 5 ? 40 : 20;
+        const kb = gamesPlayed[B.name] < 5 ? 40 : 20;
+        deltas[A.name] += ka*(sa-ea);
+        deltas[B.name] += kb*(sb-eb);
+      }
+    }
+    players.forEach(p=>{
+      elo[p.name] += deltas[p.name];
+      gamesPlayed[p.name]++;
+    });
+  });
+
+  return elo;
+}
+const eloRatings = computeElo();
+
+// per-player: sort history newest -> oldest, compute raw avg + weighted avg
+const players = Object.keys(groups).map(name=>{
+  const history = groups[name].slice().sort((a,b)=> b.date.localeCompare(a.date));
+  const scores = history.map(h=>h.score);
+  const n = scores.length;
+  const avg = scores.reduce((a,b)=>a+b,0)/n;
+  const weighted = (n/(n+K))*avg + (K/(n+K))*globalAvg;
+  const elo = eloRatings[name];
+  const max = Math.max(...scores);
+  const min = Math.min(...scores);
+  return {name, history, avg, weighted, elo, games: n, max, min};
+});
+
+const medals = {1:"🥇",2:"🥈",3:"🥉"};
+
+function fmtDate(iso){
+  const [y,m,d] = iso.split("-").map(Number);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[m-1]} ${d}`;
+}
+
+const board = document.getElementById('board');
+const subtitle = document.getElementById('subtitle');
+const btnRaw = document.getElementById('btn-raw');
+const btnWeighted = document.getElementById('btn-weighted');
+const btnElo = document.getElementById('btn-elo');
+
+let mode = 'raw'; // 'raw' | 'weighted' | 'elo'
+
+function render(){
+  const sorted = players.slice().sort((a,b)=>{
+    const valOf = p => mode === 'raw' ? p.avg : mode === 'weighted' ? p.weighted : p.elo;
+    return valOf(b) - valOf(a);
+  });
+
+  subtitle.textContent = mode === 'raw'
+    ? 'ranked by average final score \u00b7 tap a name for full history'
+    : mode === 'weighted'
+    ? `ranked by weighted average (k=${K}) \u00b7 tap a name for full history`
+    : 'ranked by Elo rating \u00b7 tap a name for full history';
+
+  btnRaw.classList.toggle('active', mode === 'raw');
+  btnWeighted.classList.toggle('active', mode === 'weighted');
+  btnElo.classList.toggle('active', mode === 'elo');
+
+  board.innerHTML = '';
+
+  sorted.forEach((p, idx)=>{
+    const rank = idx+1;
+    const li = document.createElement('li');
+    li.className = 'row';
+
+    const rankHtml = medals[rank]
+      ? `<span class="rank medal">${medals[rank]}</span>`
+      : `<span class="rank">${rank}.</span>`;
+
+    const histItems = p.history.map(h=>{
+      let cls = 'hist-score';
+      if(h.score === p.max) cls += ' high';
+      else if(h.score === p.min) cls += ' low';
+      return `<li class="hist-item"><span class="hist-date">${fmtDate(h.date)}</span><span class="${cls}">${h.score}</span></li>`;
+    }).join('');
+
+    let displayVal, extraNote;
+    if(mode === 'raw'){
+      displayVal = p.avg.toFixed(0);
+      extraNote = '';
+    } else if(mode === 'weighted'){
+      displayVal = p.weighted.toFixed(0);
+      extraNote = `<span class="weighted-note">raw ${p.avg.toFixed(0)}</span>`;
+    } else {
+      displayVal = p.elo.toFixed(0);
+      extraNote = `<span class="weighted-note">avg ${p.avg.toFixed(0)}</span>`;
+    }
+
+    li.innerHTML = `
+      <button class="row-head" aria-expanded="false">
+        ${rankHtml}
+        <span class="name">${p.name}</span>
+        <span class="meta">
+          <span class="avg">${displayVal}</span>
+          ${extraNote}
+          <span class="games">${p.games} game${p.games>1?'s':''}</span>
+        </span>
+        <span class="chev">&#9656;</span>
+      </button>
+      <div class="history">
+        <div class="history-inner">
+          <ul class="hist-list">${histItems}</ul>
+        </div>
+      </div>
+    `;
+
+    const btn = li.querySelector('.row-head');
+    const hist = li.querySelector('.history');
+
+    btn.addEventListener('click', ()=>{
+      const isOpen = li.classList.contains('open');
+      document.querySelectorAll('.row.open').forEach(other=>{
+        if(other !== li){
+          other.classList.remove('open');
+          other.querySelector('.history').style.maxHeight = null;
+          other.querySelector('.row-head').setAttribute('aria-expanded','false');
+        }
+      });
+      if(isOpen){
+        li.classList.remove('open');
+        hist.style.maxHeight = null;
+        btn.setAttribute('aria-expanded','false');
+      } else {
+        li.classList.add('open');
+        hist.style.maxHeight = hist.scrollHeight + 'px';
+        btn.setAttribute('aria-expanded','true');
+      }
+    });
+
+    board.appendChild(li);
+  });
+}
+
+btnRaw.addEventListener('click', ()=>{ mode = 'raw'; render(); });
+btnWeighted.addEventListener('click', ()=>{ mode = 'weighted'; render(); });
+btnElo.addEventListener('click', ()=>{ mode = 'elo'; render(); });
+
+render();
+</script>
+</body>
+</html>
