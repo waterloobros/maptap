@@ -379,14 +379,18 @@ const btnElo = document.getElementById('btn-elo');
 
 let mode = 'raw'; // 'raw' | 'weighted' | 'elo'
 
+const RAW_MIN_GAMES = 5; // Raw Average tab only shows players with at least this many games
+
 function render(){
-  const sorted = players.slice().sort((a,b)=>{
+  const pool = mode === 'raw' ? players.filter(p => p.games >= RAW_MIN_GAMES) : players;
+
+  const sorted = pool.slice().sort((a,b)=>{
     const valOf = p => mode === 'raw' ? p.avg : mode === 'weighted' ? p.weighted : p.elo;
     return valOf(b) - valOf(a);
   });
 
   subtitle.textContent = mode === 'raw'
-    ? 'ranked by average final score \u00b7 tap a name for full history'
+    ? `ranked by average final score (${RAW_MIN_GAMES}+ games) \u00b7 tap a name for full history`
     : mode === 'weighted'
     ? `ranked by weighted average (k=${K}) \u00b7 tap a name for full history`
     : 'ranked by Elo rating \u00b7 tap a name for full history';
