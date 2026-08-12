@@ -85,6 +85,25 @@
     color:#8a8272;
   }
 
+  .min-games-toggle{
+    margin-top:10px;
+    text-align:center;
+    display:none;
+  }
+  .min-games-toggle.visible{display:block;}
+  .min-games-btn{
+    font-family:'Courier New',monospace;
+    font-size:10px;
+    letter-spacing:.03em;
+    background:none;
+    border:none;
+    color:#8a8272;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:2px;
+  }
+  .min-games-btn:hover{color:var(--accent);}
+
   .board{
     list-style:none;
     margin:0;
@@ -220,6 +239,9 @@
       <button class="toggle-btn active" id="btn-raw" type="button">Raw Average</button>
       <button class="toggle-btn" id="btn-weighted" type="button">Weighted (k=8)</button>
       <button class="toggle-btn" id="btn-elo" type="button">Elo</button>
+    </div>
+    <div class="min-games-toggle" id="min-games-toggle">
+      <button class="min-games-btn" id="btn-toggle-min" type="button">show all players (no 5-game min)</button>
     </div>
   </header>
 
@@ -376,13 +398,16 @@ const subtitle = document.getElementById('subtitle');
 const btnRaw = document.getElementById('btn-raw');
 const btnWeighted = document.getElementById('btn-weighted');
 const btnElo = document.getElementById('btn-elo');
+const minGamesToggle = document.getElementById('min-games-toggle');
+const btnToggleMin = document.getElementById('btn-toggle-min');
 
 let mode = 'raw'; // 'raw' | 'weighted' | 'elo'
+let showAllRaw = false; // when true, ignores RAW_MIN_GAMES on the raw tab
 
-const RAW_MIN_GAMES = 5; // Raw Average tab only shows players with at least this many games
+const RAW_MIN_GAMES = 5; // Raw Average tab only shows players with at least this many games, unless toggled off
 
 function render(){
-  const pool = mode === 'raw' ? players.filter(p => p.games >= RAW_MIN_GAMES) : players;
+  const pool = (mode === 'raw' && !showAllRaw) ? players.filter(p => p.games >= RAW_MIN_GAMES) : players;
 
   const sorted = pool.slice().sort((a,b)=>{
     const valOf = p => mode === 'raw' ? p.avg : mode === 'weighted' ? p.weighted : p.elo;
@@ -390,10 +415,17 @@ function render(){
   });
 
   subtitle.textContent = mode === 'raw'
-    ? `ranked by average final score (${RAW_MIN_GAMES}+ games) \u00b7 tap a name for full history`
+    ? (showAllRaw
+        ? 'ranked by average final score (all players) \u00b7 tap a name for full history'
+        : `ranked by average final score (${RAW_MIN_GAMES}+ games) \u00b7 tap a name for full history`)
     : mode === 'weighted'
     ? `ranked by weighted average (k=${K}) \u00b7 tap a name for full history`
     : 'ranked by Elo rating \u00b7 tap a name for full history';
+
+  minGamesToggle.classList.toggle('visible', mode === 'raw');
+  btnToggleMin.textContent = showAllRaw
+    ? `apply ${RAW_MIN_GAMES}-game minimum`
+    : 'show all players (no 5-game min)';
 
   btnRaw.classList.toggle('active', mode === 'raw');
   btnWeighted.classList.toggle('active', mode === 'weighted');
@@ -477,6 +509,7 @@ function render(){
 btnRaw.addEventListener('click', ()=>{ mode = 'raw'; render(); });
 btnWeighted.addEventListener('click', ()=>{ mode = 'weighted'; render(); });
 btnElo.addEventListener('click', ()=>{ mode = 'elo'; render(); });
+btnToggleMin.addEventListener('click', ()=>{ showAllRaw = !showAllRaw; render(); });
 
 render();
 </script>
