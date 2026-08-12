@@ -227,6 +227,7 @@
     .history-inner{padding-left:34px;}
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -307,7 +308,7 @@ const raw = [
 ["Saad","2026-07-22",865],["Abdel Rahman","2026-07-22",854],["Saif","2026-07-21",686],
 ["Sohaib","2026-07-22",914],["Abdel Rahman","2026-07-21",616],["Hussain","2026-07-21",634],
 ["Thamjeeth","2026-07-22",888],["Shahzad","2026-07-21",669],["Saad","2026-07-21",701],
-["Thamjeeth","2026-07-21",768]
+["Thamjeeth","2026-07-21",708]
 ];
 
 // group
@@ -453,6 +454,8 @@ function render(){
       return `<li class="hist-item"><span class="hist-date">${fmtDate(h.date)}</span><span class="${cls}">${h.score}</span></li>`;
     }).join('');
 
+    const isChartPlayer = true; // chart view now applies to every player
+
     let displayVal, extraNote;
     if(mode === 'raw'){
       displayVal = p.avg.toFixed(0);
@@ -464,6 +467,16 @@ function render(){
       displayVal = p.elo.toFixed(0);
       extraNote = `<span class="weighted-note">avg ${p.avg.toFixed(0)}</span>`;
     }
+
+    const historyInnerHtml = isChartPlayer
+      ? `<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;">
+           <span style="font-family:'Courier New',monospace; font-size:10px; color:#8a8272; text-transform:uppercase; letter-spacing:.05em;">score history</span>
+           <span class="chart-readout" style="font-family:'Courier New',monospace; font-size:11px; color:#8a8272;">tap a point</span>
+         </div>
+         <div style="position:relative; width:100%; height:220px;">
+           <canvas class="hist-chart" role="img" aria-label="Line chart of ${p.name}'s MapTap score history"></canvas>
+         </div>`
+      : `<ul class="hist-list">${histItems}</ul>`;
 
     li.innerHTML = `
       <button class="row-head" aria-expanded="false">
@@ -478,13 +491,76 @@ function render(){
       </button>
       <div class="history">
         <div class="history-inner">
-          <ul class="hist-list">${histItems}</ul>
+          ${historyInnerHtml}
         </div>
       </div>
     `;
 
     const btn = li.querySelector('.row-head');
     const hist = li.querySelector('.history');
+
+    if(isChartPlayer){
+      const chronological = p.history.slice().sort((a,b)=> a.date.localeCompare(b.date));
+      const labels = chronological.map(h=>fmtDate(h.date));
+      const scores = chronological.map(h=>h.score);
+      const readout = li.querySelector('.chart-readout');
+      const canvas = li.querySelector('.hist-chart');
+
+      const THEME = '#1c1b19';   // --ink
+      const PAPER = '#f6f2ea';   // --paper (hollow point center)
+      const GREEN = '#008300';
+      const RED = '#e34948';
+
+      const pointColor = chronological.map(h=>
+        h.score===p.max ? GREEN : h.score===p.min ? RED : THEME);
+      const pointFill = chronological.map(()=> PAPER); // all hollow by default
+      let selectedIdx = null;
+
+      const chart = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: scores,
+            borderColor: THEME,
+            fill: false,
+            tension: 0.25,
+            borderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 7,
+            pointBackgroundColor: pointFill.slice(),
+            pointBorderColor: pointColor,
+            pointBorderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: {
+            y: { grid: { color: '#e1e0d9' }, ticks: { color: '#8a8272', font: {size: 10} } },
+            x: { grid: { display: false }, ticks: { color: '#8a8272', font: {size: 9}, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 } }
+          },
+          onClick: (evt, elements) => {
+            if(elements.length){
+              const idx = elements[0].index;
+              const fills = chart.data.datasets[0].pointBackgroundColor.slice();
+              if(selectedIdx !== null) fills[selectedIdx] = PAPER;
+              fills[idx] = pointColor[idx];
+              chart.data.datasets[0].pointBackgroundColor = fills;
+              chart.update();
+              selectedIdx = idx;
+              readout.textContent = labels[idx] + ' — ' + scores[idx];
+              readout.style.color = 'var(--ink)';
+              readout.style.fontWeight = '700';
+            }
+          },
+          onHover: (evt, elements) => {
+            evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+          }
+        }
+      });
+    }
 
     btn.addEventListener('click', ()=>{
       const isOpen = li.classList.contains('open');
