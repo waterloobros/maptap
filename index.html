@@ -240,6 +240,7 @@
       <button class="toggle-btn active" id="btn-raw" type="button">Raw Average</button>
       <button class="toggle-btn" id="btn-weighted" type="button">Weighted (k=8)</button>
       <button class="toggle-btn" id="btn-elo" type="button">Elo</button>
+      <button class="toggle-btn" id="btn-best" type="button">Best Scores</button>
     </div>
     <div class="min-games-toggle" id="min-games-toggle">
       <button class="min-games-btn" id="btn-toggle-min" type="button">show all players (no 5-game min)</button>
@@ -402,7 +403,8 @@ const players = Object.keys(groups).map(name=>{
   const elo = eloRatings[name];
   const max = Math.max(...scores);
   const min = Math.min(...scores);
-  return {name, history, avg, weighted, elo, games: n, max, min};
+  const maxDate = history.find(h=>h.score===max).date;
+  return {name, history, avg, weighted, elo, games: n, max, min, maxDate};
 });
 
 const medals = {1:"🥇",2:"🥈",3:"🥉"};
@@ -418,10 +420,11 @@ const subtitle = document.getElementById('subtitle');
 const btnRaw = document.getElementById('btn-raw');
 const btnWeighted = document.getElementById('btn-weighted');
 const btnElo = document.getElementById('btn-elo');
+const btnBest = document.getElementById('btn-best');
 const minGamesToggle = document.getElementById('min-games-toggle');
 const btnToggleMin = document.getElementById('btn-toggle-min');
 
-let mode = 'raw'; // 'raw' | 'weighted' | 'elo'
+let mode = 'raw'; // 'raw' | 'weighted' | 'elo' | 'best'
 let showAllRaw = false; // when true, ignores RAW_MIN_GAMES on the raw tab
 
 const RAW_MIN_GAMES = 5; // Raw Average tab only shows players with at least this many games, unless toggled off
@@ -430,7 +433,7 @@ function render(){
   const pool = (mode === 'raw' && !showAllRaw) ? players.filter(p => p.games >= RAW_MIN_GAMES) : players;
 
   const sorted = pool.slice().sort((a,b)=>{
-    const valOf = p => mode === 'raw' ? p.avg : mode === 'weighted' ? p.weighted : p.elo;
+    const valOf = p => mode === 'raw' ? p.avg : mode === 'weighted' ? p.weighted : mode === 'elo' ? p.elo : p.max;
     return valOf(b) - valOf(a);
   });
 
@@ -440,7 +443,9 @@ function render(){
         : `ranked by average final score (${RAW_MIN_GAMES}+ games) \u00b7 tap a name for full history`)
     : mode === 'weighted'
     ? `ranked by weighted average (k=${K}) \u00b7 tap a name for full history`
-    : 'ranked by Elo rating \u00b7 tap a name for full history';
+    : mode === 'elo'
+    ? 'ranked by Elo rating \u00b7 tap a name for full history'
+    : 'ranked by all-time best score \u00b7 tap a name for full ranked list';
 
   minGamesToggle.classList.toggle('visible', mode === 'raw');
   btnToggleMin.textContent = showAllRaw
@@ -450,6 +455,7 @@ function render(){
   btnRaw.classList.toggle('active', mode === 'raw');
   btnWeighted.classList.toggle('active', mode === 'weighted');
   btnElo.classList.toggle('active', mode === 'elo');
+  btnBest.classList.toggle('active', mode === 'best');
 
   board.innerHTML = '';
 
@@ -462,14 +468,21 @@ function render(){
       ? `<span class="rank medal">${medals[rank]}</span>`
       : `<span class="rank">${rank}.</span>`;
 
-    const histItems = p.history.map(h=>{
+    const histItemsByDate = p.history.map(h=>{
       let cls = 'hist-score';
       if(h.score === p.max) cls += ' high';
       else if(h.score === p.min) cls += ' low';
       return `<li class="hist-item"><span class="hist-date">${fmtDate(h.date)}</span><span class="${cls}">${h.score}</span></li>`;
     }).join('');
 
-    const isChartPlayer = true; // chart view now applies to every player
+    const histItemsByScore = p.history.slice().sort((a,b)=> b.score - a.score).map(h=>{
+      let cls = 'hist-score';
+      if(h.score === p.max) cls += ' high';
+      else if(h.score === p.min) cls += ' low';
+      return `<li class="hist-item"><span class="hist-date">${fmtDate(h.date)}</span><span class="${cls}">${h.score}</span></li>`;
+    }).join('');
+
+    const isChartPlayer = mode !== 'best'; // Best Scores tab always shows a plain ranked list, never the graph
 
     let displayVal, extraNote;
     if(mode === 'raw'){
@@ -478,9 +491,12 @@ function render(){
     } else if(mode === 'weighted'){
       displayVal = p.weighted.toFixed(0);
       extraNote = `<span class="weighted-note">raw ${p.avg.toFixed(0)}</span>`;
-    } else {
+    } else if(mode === 'elo'){
       displayVal = p.elo.toFixed(0);
       extraNote = `<span class="weighted-note">avg ${p.avg.toFixed(0)}</span>`;
+    } else {
+      displayVal = p.max;
+      extraNote = `<span class="weighted-note">${fmtDate(p.maxDate)}</span>`;
     }
 
     const historyInnerHtml = isChartPlayer
@@ -491,7 +507,7 @@ function render(){
          <div style="position:relative; width:100%; height:220px;">
            <canvas class="hist-chart" role="img" aria-label="Line chart of ${p.name}'s MapTap score history"></canvas>
          </div>`
-      : `<ul class="hist-list">${histItems}</ul>`;
+      : `<ul class="hist-list">${histItemsByScore}</ul>`;
 
     li.innerHTML = `
       <button class="row-head" aria-expanded="false">
@@ -604,6 +620,7 @@ function render(){
 btnRaw.addEventListener('click', ()=>{ mode = 'raw'; render(); });
 btnWeighted.addEventListener('click', ()=>{ mode = 'weighted'; render(); });
 btnElo.addEventListener('click', ()=>{ mode = 'elo'; render(); });
+btnBest.addEventListener('click', ()=>{ mode = 'best'; render(); });
 btnToggleMin.addEventListener('click', ()=>{ showAllRaw = !showAllRaw; render(); });
 
 render();
